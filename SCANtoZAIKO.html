@@ -1,0 +1,140 @@
+<SCANtoZAIKO html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>在庫バーコード管理</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      text-align: center;
+      padding: 2em;
+    }
+    #reader {
+      width: 100%;
+      max-width: 400px;
+      margin: 1em auto;
+    }
+    label, select, input {
+      font-size: 1.2em;
+      margin: 0.5em;
+    }
+    button {
+      font-size: 1.5em;
+      padding: 0.8em 1.5em;
+      margin: 1em;
+    }
+    #result {
+      font-size: 1.2em;
+      margin-top: 1em;
+      color: green;
+    }
+  </style>
+  <script src="https://unpkg.com/html5-qrcode"></script>
+</head>
+<body>
+  <h2>在庫バーコード管理</h2>
+
+  <div>
+    <label>処理種別：</label>
+    <select id="action">
+      <option value="入庫">入庫</option>
+      <option value="出庫">出庫</option>
+    </select>
+    <label>数量：</label>
+    <input type="number" id="quantity" min="1" value="1">
+  </div>
+
+  <div>
+    <label>登録者：</label>
+    <select id="operator"></select>
+    <label>出庫者：</label>
+    <select id="consumer"></select>
+  </div>
+
+  <div id="reader"></div>
+  <button onclick="startScanner()">📷 スキャン開始</button>
+  <button onclick="stopScanner()">🛑 スキャン停止</button>
+  <button onclick="resetForm()">終了</button>
+
+  <div id="result">読み取り結果がここに表示されます</div>
+
+  <script>
+    const scriptUrl = "https://script.google.com/macros/s/AKfycbx7BTdQhyMAftExq0u540NI-H-sWG-7cXbzzcxJFKKLjVd01IijmjSePNmWdqqijFtDBQ/exec";
+    const userListUrl = "https://script.google.com/macros/s/AKfycbzD2cu-Ih9yg5R4cRCnfgh4tHeLfA5ZdyBRjQmczK3OQGxs6298kq9o31Iqxz5IE8K7SQ/exec/exec";
+    let html5QrCode;
+
+    function loadUserLists() {
+      fetch(userListUrl)
+        .then(res => res.json())
+        .then(data => {
+          const operatorSel = document.getElementById("operator");
+          const consumerSel = document.getElementById("consumer");
+          data.operators.forEach(name => {
+            const opt = document.createElement("option");
+            opt.value = name;
+            opt.textContent = name;
+            operatorSel.appendChild(opt);
+          });
+          data.consumers.forEach(name => {
+            const opt = document.createElement("option");
+            opt.value = name;
+            opt.textContent = name;
+            consumerSel.appendChild(opt);
+          });
+        });
+    }
+
+    function startScanner() {
+      html5QrCode = new Html5Qrcode("reader");
+      html5QrCode.start(
+        { facingMode: "environment" },
+        { fps: 10, qrbox: 250 },
+        decodedText => {
+          document.getElementById("result").textContent = `バーコード: ${decodedText}`;
+          sendToSheet(decodedText);
+          html5QrCode.stop();
+        },
+        error => { console.log("スキャン失敗:", error); }
+      ).catch(err => {
+        document.getElementById("result").textContent = `エラー: ${err}`;
+      });
+    }
+
+    function stopScanner() {
+      if (html5QrCode) {
+        html5QrCode.stop().then(() => {
+          document.getElementById("result").textContent = "スキャン停止しました";
+        });
+      }
+    }
+
+    function sendToSheet(barcode) {
+      const type = document.getElementById("action").value;
+      const qty = document.getElementById("quantity").value;
+      const operator = document.getElementById("operator").value;
+      const consumer = document.getElementById("consumer").value;
+
+      const body = `barcode=${barcode}&type=${type}&qty=${qty}&operator=${operator}&consumer=${consumer}`;
+      fetch(scriptUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: body
+      })
+      .then(res => res.text())
+      .then(text => {
+        console.log("送信結果:", text);
+      })
+      .catch(err => {
+        console.error("送信エラー:", err);
+      });
+    }
+
+    function resetForm() {
+      document.getElementById("result").textContent = "読み取り結果がここに表示されます";
+      document.getElementById("quantity").value = 1;
+    }
+
+    loadUserLists();
+  </script>
+</body>
+</html>
