@@ -36,23 +36,23 @@
 
   <div>
     <label>処理種別：</label>
-    <select id="action">
+    <select id="action" name="action">
       <option value="入庫">入庫</option>
       <option value="出庫">出庫</option>
     </select>
     <label>数量：</label>
-    <input type="number" id="quantity" min="1" value="1">
+    <input type="number" id="quantity" name="quantity" min="1" value="1">
   </div>
 
   <div>
     <label>登録者：</label>
-    <select id="operator"></select>
+    <select id="operator" name="operator"></select>
     <label>出庫者：</label>
-    <select id="consumer"></select>
+    <select id="consumer" name="consumer"></select>
   </div>
 
   <div id="reader"></div>
-  <button onclick="startScanner()">📷 スキャン開始</button>
+  <button onclick="startScanner()" id="scanBtn" disabled>📷 スキャン開始</button>
   <button onclick="stopScanner()">🛑 スキャン停止</button>
   <button onclick="resetForm()">終了</button>
 
@@ -69,18 +69,27 @@
         .then(data => {
           const operatorSel = document.getElementById("operator");
           const consumerSel = document.getElementById("consumer");
-          data.operators.forEach(name => {
+
+          data.operators.forEach((name, i) => {
             const opt = document.createElement("option");
             opt.value = name;
             opt.textContent = name;
             operatorSel.appendChild(opt);
+            if (i === 0) operatorSel.value = name;
           });
-          data.consumers.forEach(name => {
+
+          data.consumers.forEach((name, i) => {
             const opt = document.createElement("option");
             opt.value = name;
             opt.textContent = name;
             consumerSel.appendChild(opt);
+            if (i === 0) consumerSel.value = name;
           });
+
+          document.getElementById("scanBtn").disabled = false;
+        })
+        .catch(err => {
+          document.getElementById("result").textContent = `ユーザーリスト取得エラー: ${err}`;
         });
     }
 
@@ -96,7 +105,7 @@
         },
         error => { console.log("スキャン失敗:", error); }
       ).catch(err => {
-        document.getElementById("result").textContent = `エラー: ${err}`;
+        document.getElementById("result").textContent = `スキャンエラー: ${err}`;
       });
     }
 
@@ -122,10 +131,10 @@
       })
       .then(res => res.text())
       .then(text => {
-        console.log("送信結果:", text);
+        document.getElementById("result").textContent += `\n送信結果: ${text}`;
       })
       .catch(err => {
-        console.error("送信エラー:", err);
+        document.getElementById("result").textContent += `\n送信エラー: ${err}`;
       });
     }
 
