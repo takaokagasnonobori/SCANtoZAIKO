@@ -1,4 +1,5 @@
 <SCANtoZAIKO html>
+<!DOCTYPE html>
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
@@ -27,8 +28,10 @@
       font-size: 1.2em;
       margin-top: 1em;
       color: green;
+      white-space: pre-wrap;
     }
   </style>
+  <!-- ✅ Google翻訳など外部CSSは読み込まない -->
   <script src="https://unpkg.com/html5-qrcode"></script>
 </head>
 <body>
@@ -89,7 +92,7 @@
           document.getElementById("scanBtn").disabled = false;
         })
         .catch(err => {
-          document.getElementById("result").textContent = `ユーザーリスト取得エラー: ${err}`;
+          document.getElementById("result").textContent = `ユーザーリスト取得エラー:\n${err}`;
         });
     }
 
@@ -105,7 +108,7 @@
         },
         error => { console.log("スキャン失敗:", error); }
       ).catch(err => {
-        document.getElementById("result").textContent = `スキャンエラー: ${err}`;
+        document.getElementById("result").textContent = `スキャンエラー:\n${err}`;
       });
     }
 
@@ -123,7 +126,8 @@
       const operator = document.getElementById("operator").value;
       const consumer = document.getElementById("consumer").value;
 
-      const body = `barcode=${barcode}&type=${type}&qty=${qty}&operator=${operator}&consumer=${consumer}`;
+      const body = `barcode=${encodeURIComponent(barcode)}&type=${encodeURIComponent(type)}&qty=${encodeURIComponent(qty)}&operator=${encodeURIComponent(operator)}&consumer=${encodeURIComponent(consumer)}`;
+
       fetch(scriptUrl, {
         method: "POST",
         headers: { "Content-Type": "application/x-www-form-urlencoded" },
@@ -134,7 +138,7 @@
         document.getElementById("result").textContent += `\n送信結果: ${text}`;
       })
       .catch(err => {
-        document.getElementById("result").textContent += `\n送信エラー: ${err}`;
+        document.getElementById("result").textContent += `\n送信エラー:\n${err}`;
       });
     }
 
