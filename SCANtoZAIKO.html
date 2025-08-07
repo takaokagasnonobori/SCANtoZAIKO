@@ -1,100 +1,54 @@
 <SCANtoZAIKO html>
-<!DOCTYPE html>
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
-  <title>在庫バーコード管理</title>
-  <style>
-    body {
-      font-family: sans-serif;
-      text-align: center;
-      padding: 2em;
-    }
-    #reader {
-      width: 100%;
-      max-width: 400px;
-      margin: 1em auto;
-    }
-    label, select, input {
-      font-size: 1.2em;
-      margin: 0.5em;
-    }
-    button {
-      font-size: 1.5em;
-      padding: 0.8em 1.5em;
-      margin: 1em;
-    }
-    #result {
-      font-size: 1.2em;
-      margin-top: 1em;
-      color: green;
-      white-space: pre-wrap;
-    }
-  </style>
-  <!-- ✅ Google翻訳など外部CSSは読み込まない -->
+  <title>バーコード入出庫管理</title>
   <script src="https://unpkg.com/html5-qrcode"></script>
+  <style>
+    body { font-family: sans-serif; padding: 20px; }
+    select, input, button { margin: 5px; padding: 8px; }
+    #reader { width: 300px; margin-top: 10px; }
+    #result { white-space: pre-wrap; margin-top: 10px; background: #f0f0f0; padding: 10px; }
+  </style>
 </head>
 <body>
-  <h2>在庫バーコード管理</h2>
+  <h2>バーコード入出庫管理</h2>
 
-  <div>
-    <label>処理種別：</label>
-    <select id="action" name="action">
-      <option value="入庫">入庫</option>
-      <option value="出庫">出庫</option>
-    </select>
-    <label>数量：</label>
-    <input type="number" id="quantity" name="quantity" min="1" value="1">
-  </div>
+  <label>処理種別:</label>
+  <select id="action">
+    <option value="入庫">入庫</option>
+    <option value="出庫">出庫</option>
+  </select><br>
 
-  <div>
-    <label>登録者：</label>
-    <select id="operator" name="operator"></select>
-    <label>出庫者：</label>
-    <select id="consumer" name="consumer"></select>
-  </div>
+  <label>数量:</label>
+  <input type="number" id="quantity" value="1" min="1"><br>
 
-  <div id="reader"></div>
-  <button onclick="startScanner()" id="scanBtn" disabled>📷 スキャン開始</button>
+  <label>登録者:</label>
+  <select id="operator">
+    <option value="">選択してください</option>
+    <option value="山田">山田</option>
+    <option value="佐藤">佐藤</option>
+  </select><br>
+
+  <label>担当者:</label>
+  <select id="consumer">
+    <option value="">選択してください</option>
+    <option value="田中">田中</option>
+    <option value="鈴木">鈴木</option>
+  </select><br>
+
+  <button onclick="startScanner()">📷 スキャン開始</button>
   <button onclick="stopScanner()">🛑 スキャン停止</button>
+  <button onclick="submitData()">📤 送信</button>
   <button onclick="resetForm()">終了</button>
 
+  <div id="reader"></div>
   <div id="result">読み取り結果がここに表示されます</div>
 
   <script>
-    const scriptUrl = "https://script.google.com/macros/s/AKfycbwekHd8Nn8DbZ_Ns6BLXXfjgdl4P7X47GXWiFp37S-jnH0lijSIX5HpuJW-7sVW-O1x6Q/exec";
-    const userListUrl = "https://script.google.com/macros/s/AKfycbwe1KWXT4glYCDhL2IoZ-W4tprl_lh_VJECsHrEfTt80bSl9VeXVIW82ob5EXcJEQf2Jg/exec";
+    const scriptUrl = "https://script.google.com/macros/s/AKfycbynFMOKoIa4s2W2AODyrwZ4C0ISWer7JqUjgRT2tB78OwC25_TWvPI1xX32LPnjuec2LA/exec"; // ← Google Apps ScriptのURLに置き換えてください
     let html5QrCode;
-
-    function loadUserLists() {
-      fetch(userListUrl)
-        .then(res => res.json())
-        .then(data => {
-          const operatorSel = document.getElementById("operator");
-          const consumerSel = document.getElementById("consumer");
-
-          data.operators.forEach((name, i) => {
-            const opt = document.createElement("option");
-            opt.value = name;
-            opt.textContent = name;
-            operatorSel.appendChild(opt);
-            if (i === 0) operatorSel.value = name;
-          });
-
-          data.consumers.forEach((name, i) => {
-            const opt = document.createElement("option");
-            opt.value = name;
-            opt.textContent = name;
-            consumerSel.appendChild(opt);
-            if (i === 0) consumerSel.value = name;
-          });
-
-          document.getElementById("scanBtn").disabled = false;
-        })
-        .catch(err => {
-          document.getElementById("result").textContent = `ユーザーリスト取得エラー:\n${err}`;
-        });
-    }
+    let scannedBarcode = "";
 
     function startScanner() {
       html5QrCode = new Html5Qrcode("reader");
@@ -102,8 +56,8 @@
         { facingMode: "environment" },
         { fps: 10, qrbox: 250 },
         decodedText => {
+          scannedBarcode = decodedText;
           document.getElementById("result").textContent = `バーコード: ${decodedText}`;
-          sendToSheet(decodedText);
           html5QrCode.stop();
         },
         error => { console.log("スキャン失敗:", error); }
@@ -115,18 +69,29 @@
     function stopScanner() {
       if (html5QrCode) {
         html5QrCode.stop().then(() => {
-          document.getElementById("result").textContent = "スキャン停止しました";
+          html5QrCode.clear();
+        }).catch(err => {
+          console.error("停止エラー:", err);
         });
       }
     }
 
-    function sendToSheet(barcode) {
+    function submitData() {
       const type = document.getElementById("action").value;
       const qty = document.getElementById("quantity").value;
       const operator = document.getElementById("operator").value;
       const consumer = document.getElementById("consumer").value;
 
-      const body = `barcode=${encodeURIComponent(barcode)}&type=${encodeURIComponent(type)}&qty=${encodeURIComponent(qty)}&operator=${encodeURIComponent(operator)}&consumer=${encodeURIComponent(consumer)}`;
+      if (!scannedBarcode) {
+        alert("バーコードが未スキャンです");
+        return;
+      }
+      if (!operator || !consumer) {
+        alert("登録者と担当者を選択してください");
+        return;
+      }
+
+      const body = `barcode=${encodeURIComponent(scannedBarcode)}&type=${encodeURIComponent(type)}&qty=${encodeURIComponent(qty)}&operator=${encodeURIComponent(operator)}&consumer=${encodeURIComponent(consumer)}`;
 
       fetch(scriptUrl, {
         method: "POST",
@@ -136,6 +101,7 @@
       .then(res => res.text())
       .then(text => {
         document.getElementById("result").textContent += `\n送信結果: ${text}`;
+        scannedBarcode = ""; // 送信後にバーコードをクリア
       })
       .catch(err => {
         document.getElementById("result").textContent += `\n送信エラー:\n${err}`;
@@ -143,11 +109,14 @@
     }
 
     function resetForm() {
-      document.getElementById("result").textContent = "読み取り結果がここに表示されます";
+      document.getElementById("action").value = "入庫";
       document.getElementById("quantity").value = 1;
+      document.getElementById("operator").selectedIndex = 0;
+      document.getElementById("consumer").selectedIndex = 0;
+      document.getElementById("result").textContent = "読み取り結果がここに表示されます";
+      scannedBarcode = "";
+      stopScanner();
     }
-
-    loadUserLists();
   </script>
 </body>
 </html>
